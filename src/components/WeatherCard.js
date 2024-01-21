@@ -1,24 +1,63 @@
 import React from "react";
+import { firestore } from "../firebase/firebase"; // Adjust path as necessary
+import { useAuth } from "../context/AuthContext";
+// import { doc, updateDoc, arrayUnion } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, arrayUnion } from "firebase/firestore";
 
 function WeatherCard({ weatherData }) {
-  // Check if weatherData is available
+  const { currentUser } = useAuth();
+
   if (!weatherData) {
     return <div>Loading weather data...</div>;
   }
 
-  // Helper function to convert Kelvin to Celsius
+  // Convert temperature from Kelvin to Celsius
   const toCelsius = (kelvin) => (kelvin - 273.15).toFixed(1);
 
-  // Extracting data from weatherData object
+  // Extract data with optional chaining to safely access nested properties
   const {
     name,
-    weather,
-    main: { temp, feels_like, temp_min, temp_max, humidity },
-    wind: { speed },
+    coord: { lat, lon } = {},
+    main: { temp, feels_like, temp_min, temp_max, humidity } = {},
+    wind: { speed } = {},
     visibility,
     dt,
     snow,
+    weather = [],
   } = weatherData;
+
+  const handlePinLocation = async () => {
+    if (!currentUser || !lat || !lon) return;
+
+    const userDocRef = doc(firestore, "users", currentUser.uid);
+    const locationData = {
+      name,
+      latitude: lat,
+      longitude: lon,
+    };
+
+    try {
+      // Get the user document
+      const docSnap = await getDoc(userDocRef);
+
+      // If the document exists, update it. Otherwise, create it.
+      if (docSnap.exists()) {
+        await updateDoc(userDocRef, {
+          pinnedLocations: arrayUnion(locationData),
+        });
+      } else {
+        await setDoc(
+          userDocRef,
+          {
+            pinnedLocations: [locationData],
+          },
+          { merge: true }
+        );
+      }
+    } catch (error) {
+      console.error("Error pinning location:", error);
+    }
+  };
 
   return (
     <div className="max-w-md mx-auto my-4 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-xl shadow-md overflow-hidden md:max-w-2xl">
@@ -39,6 +78,12 @@ function WeatherCard({ weatherData }) {
           <p>Wind Speed: {speed} m/s</p>
           <p>Visibility: {visibility / 1000} km</p>
           {snow && snow["1h"] && <p>Snowfall: {snow["1h"]} mm/h</p>}
+          <button
+            onClick={handlePinLocation}
+            className="mt-4 bg-white text-blue-500 px-4 py-2 rounded shadow"
+          >
+            Pin Location
+          </button>
         </div>
       </div>
     </div>

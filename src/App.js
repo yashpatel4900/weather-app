@@ -4,11 +4,30 @@ import NavBar from "./components/NavBar";
 import Footer from "./components/Footer";
 import HomePage from "./pages/HomePage";
 import AboutPage from "./pages/AboutPage";
+import { auth, firestore } from "./firebase/firebase.js";
+import { signInWithGoogle } from "./firebase/authService.js";
+import { AuthProvider } from "./context/AuthContext";
+import { doc, getDoc } from "firebase/firestore";
 
 function App() {
   const [weatherData, setWeatherData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [pinnedWeatherData, setPinnedWeatherData] = useState([]);
+
+  const fetchPinnedLocationsWeather = async (pinnedLocations) => {
+    const weatherApiKey = "22f2cb810350606a89436fea13da3c79"; // Use environment variable for API key
+    const weatherDataPromises = pinnedLocations.map(async (location) => {
+      const response = await fetch(
+        `https://api.openweathermap.org/data/2.5/weather?lat=${location.latitude}&lon=${location.longitude}&appid=${weatherApiKey}`
+      );
+      return response.json();
+    });
+
+    const weatherDataArray = await Promise.all(weatherDataPromises);
+    setPinnedWeatherData(weatherDataArray);
+  };
 
   const fetchWeatherData = async (lat, lon) => {
     setLoading(true);
@@ -58,6 +77,7 @@ function App() {
     }
   };
 
+  // Use geolocation to fetch weather data on load
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -70,25 +90,56 @@ function App() {
     );
   }, []);
 
-  return (
-    <Router>
-      <NavBar />
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <HomePage
-              weatherData={weatherData}
-              onSearch={fetchWeatherByCity}
-              loading={loading}
-              error={error}
-            />
+  // Firebase auth listener
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      setCurrentUser(user);
+      if (user) {
+        const userRef = doc(firestore, "users", user.uid);
+        getDoc(userRef).then((docSnap) => {
+          if (docSnap.exists() && docSnap.data().pinnedLocations) {
+            fetchPinnedLocationsWeather(docSnap.data().pinnedLocations);
           }
-        />
-        <Route path="/about" element={<AboutPage />} />
-      </Routes>
-      <Footer />
-    </Router>
+        });
+      } else {
+        setPinnedWeatherData([]); // Clear pinned data if user signs out
+      }
+    });
+
+    return () => unsubscribe(); // Clean up the listener
+  }, []);
+
+  return (
+    <AuthProvider>
+      <Router>
+        <NavBar currentUser={currentUser} />
+        <Routes>
+          <Route
+            path="/"
+            element={
+              currentUser ? (
+                <HomePage
+                  weatherData={weatherData}
+                  pinnedWeatherData={pinnedWeatherData}
+                  onSearch={fetchWeatherByCity}
+                  loading={loading}
+                  error={error}
+                />
+              ) : (
+                <div>
+                  <p>Please sign in to view the weather information.</p>
+                  <button onClick={signInWithGoogle}>
+                    Sign In with Google
+                  </button>
+                </div>
+              )
+            }
+          />
+          <Route path="/about" element={<AboutPage />} />
+        </Routes>
+        <Footer />
+      </Router>
+    </AuthProvider>
   );
 }
 
