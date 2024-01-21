@@ -1,0 +1,31 @@
+{
+  "coord": { "lon": -76.1186, "lat": 43.0171 },
+  "weather": [
+    { "id": 600, "main": "Snow", "description": "light snow", "icon": "13n" }
+  ],
+  "base": "stations",
+  "main": {
+    "temp": 263.09,
+    "feels_like": 257.46,
+    "temp_min": 262,
+    "temp_max": 264.03,
+    "pressure": 1020,
+    "humidity": 87
+  },
+  "visibility": 6437,
+  "wind": { "speed": 3.09, "deg": 300 },
+  "snow": { "1h": 0.16 },
+  "clouds": { "all": 100 },
+  "dt": 1705799354,
+  "sys": {
+    "type": 2,
+    "id": 2010992,
+    "country": "US",
+    "sunrise": 1705753820,
+    "sunset": 1705788000
+  },
+  "timezone": -18000,
+  "id": 5140405,
+  "name": "Syracuse",
+  "cod": 200
+}
